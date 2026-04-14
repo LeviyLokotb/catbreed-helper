@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cat Breed Helper</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <main class="page">
+        <section class="hero">
+            <div class="hero__content">
+                <p class="hero__eyebrow">Cat Breed Helper</p>
+                <h1 class="hero__title">Определи породу кошки по фотографии</h1>
+                <p class="hero__description">
+                    Загрузи фото кошки, и сервис покажет предполагаемую породу
+                    и уровень уверенности. Сейчас используется мок-режим, позже
+                    сюда можно подключить реальную ML-модель.
+                </p>
+            </div>
+        </section>
+
+        <section class="workspace">
+            <div class="workspace__grid">
+                <section class="panel panel--form">
+                    <div class="panel__header">
+                        <h2 class="panel__title">Загрузка изображения</h2>
+                        <p class="panel__text">
+                            Выбери фотографию кошки в хорошем качестве.
+                        </p>
+                    </div>
+
+                    <form class="predict-form" id="predictForm">
+                        <div class="file-upload">
+                            <input
+                                class="file-upload__input"
+                                id="fileInput"
+                                name="file"
+                                type="file"
+                                accept="image/*"
+                                required
+                            />
+                            <label class="file-upload__label" for="fileInput">
+                                <span class="file-upload__icon">+</span>
+                                <span class="file-upload__content">
+                                    <span class="file-upload__title">Выберите файл</span>
+                                    <span class="file-upload__subtitle">
+                                        JPG, PNG, WEBP или другое изображение
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <div class="tips">
+                            <h3 class="tips__title">Рекомендации</h3>
+                            <ul class="tips__list">
+                                <li class="tips__item">желательно одна кошка в кадре</li>
+                                <li class="tips__item">лучше при хорошем освещении</li>
+                                <li class="tips__item">без сильного размытия</li>
+                                <li class="tips__item">морда и шерсть должны быть хорошо видны</li>
+                            </ul>
+                        </div>
+
+                        <button class="predict-form__button" type="submit" id="submitButton">
+                            Определить породу
+                        </button>
+                    </form>
+                </section>
+
+                <section class="panel panel--preview">
+                    <div class="panel__header">
+                        <h2 class="panel__title">Предпросмотр и результат</h2>
+                        <p class="panel__text">
+                            После загрузки здесь появится фото и результат распознавания.
+                        </p>
+                    </div>
+
+                    <div class="preview-block">
+                        <div class="preview" id="previewContainer" hidden>
+                            <button
+                                class="preview__remove-button"
+                                id="removeImageButton"
+                                type="button"
+                                aria-label="Удалить изображение"
+                                title="Удалить изображение"
+                            >
+                                ×
+                            </button>
+
+                            <img
+                                id="previewImage"
+                                class="preview__image"
+                                alt="Предпросмотр изображения"
+                            />
+                        </div>
+
+                        <div class="preview preview--empty" id="previewPlaceholder">
+                            <div class="preview__placeholder">
+                                <span class="preview__placeholder-icon">🐱</span>
+                                <p class="preview__placeholder-text">
+                                    Здесь будет отображаться выбранное изображение
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="status" id="status"></div>
+
+                    <section class="result" id="result" hidden>
+                        <h3 class="result__title">Результат</h3>
+
+                        <div class="result__grid">
+                            <div class="result__item">
+                                <span class="result__label">Порода</span>
+                                <span class="result__value" id="breedValue">—</span>
+                            </div>
+
+                            <div class="result__item">
+                                <span class="result__label">Уверенность</span>
+                                <span class="result__value" id="confidenceValue">—</span>
+                            </div>
+
+                            <div class="result__item result__item--full">
+                                <span class="result__label">Режим</span>
+                                <span class="result__value" id="modeValue">—</span>
+                            </div>
+                        </div>
+                    </section>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
