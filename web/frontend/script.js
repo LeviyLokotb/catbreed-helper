@@ -11,6 +11,8 @@ const breedValue = document.getElementById("breedValue");
 const confidenceValue = document.getElementById("confidenceValue");
 const modeValue = document.getElementById("modeValue");
 
+const API_URL = "https://catbreed-helper.onrender.com/predict";
+
 let currentPreviewUrl = "";
 
 function clearPreviewUrl() {
@@ -28,6 +30,9 @@ function resetPreview() {
     previewPlaceholder.hidden = false;
     resultElement.hidden = true;
     statusElement.textContent = "";
+    breedValue.textContent = "—";
+    confidenceValue.textContent = "—";
+    modeValue.textContent = "—";
 }
 
 function showPreview(file) {
@@ -52,8 +57,8 @@ fileInput.addEventListener("change", () => {
     }
 
     if (!file.type.startsWith("image/")) {
-        statusElement.textContent = "Пожалуйста, выберите именно изображение.";
         resetPreview();
+        statusElement.textContent = "Пожалуйста, выберите именно изображение.";
         return;
     }
 
@@ -76,6 +81,7 @@ form.addEventListener("submit", async (event) => {
     }
 
     submitButton.disabled = true;
+    submitButton.textContent = "Определяем...";
     statusElement.textContent = "Идёт обработка изображения...";
     resultElement.hidden = true;
 
@@ -83,28 +89,33 @@ form.addEventListener("submit", async (event) => {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch("http://127.0.0.1:8000/predict", {
+        const response = await fetch(API_URL, {
             method: "POST",
             body: formData,
         });
 
         if (!response.ok) {
-            throw new Error("Ошибка сервера");
+            throw new Error(`Ошибка сервера: ${response.status}`);
         }
 
         const data = await response.json();
 
         breedValue.textContent = data.breed ?? "Неизвестно";
         confidenceValue.textContent = `${((data.confidence ?? 0) * 100).toFixed(1)}%`;
-        modeValue.textContent = data.mode === "mock" ? "Мок-ответ" : "ML модель";
+        modeValue.textContent = data.source === "mock" ? "Мок-ответ" : "ML модель";
 
         resultElement.hidden = false;
         statusElement.textContent = "Результат успешно получен.";
     } catch (error) {
         console.error(error);
-        statusElement.textContent = "Не удалось получить результат. Проверь backend.";
+        statusElement.textContent = "Не удалось получить результат. Проверь backend и CORS.";
         resultElement.hidden = true;
     } finally {
         submitButton.disabled = false;
+        submitButton.textContent = "Определить породу";
     }
+});
+
+window.addEventListener("beforeunload", () => {
+    clearPreviewUrl();
 });
