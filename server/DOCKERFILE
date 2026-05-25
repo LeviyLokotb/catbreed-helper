@@ -1,0 +1,42 @@
+FROM golang:1.24-bookworm AS builder
+
+ENV GOPROXY=direct
+
+# Устанавливаем зависимости для сборки
+RUN apt-get update && apt-get install -y \
+    wget \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Скачиваем и устанавливаем ONNX Runtime
+RUN wget https://github.com/microsoft/onnxruntime/releases/download/v1.25.0/onnxruntime-linux-x64-1.25.0.tgz \
+    && tar -xzf onnxruntime-linux-x64-1.25.0.tgz \
+    && cp onnxruntime-linux-x64-1.25.0/lib/libonnxruntime* /usr/lib/ \
+    && cp -r onnxruntime-linux-x64-1.25.0/include/* /usr/include/ \
+    && ln -s /usr/lib/libonnxruntime.so.1.25.0 /usr/lib/onnxruntime.so \
+    && rm -rf onnxruntime-linux-x64-1.25.0*
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY ../models/model.onnx ./model.onnx
+COPY ../classes.txt ./labels.txt
+RUN go build -o server ./cmd/main/
+
+# Финальный образ
+FROM debian:bookworm-slim
+
+ENV MODEL_PATH=./model.onnx 
+ENV LABELS_PATH=./labels.txt
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/lib/libonnxruntime* /usr/lib/
+COPY --from=builder /usr/lib/onnxruntime.so /usr/lib/
+COPY --from=builder /app/server /app/server
+
+EXPOSE 8080
+CMD ["/app/server"]
