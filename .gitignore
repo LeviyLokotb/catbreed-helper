@@ -2,3 +2,5 @@
 *.tflite
 *.onnx
 *.onnx.data
+.idea/
+tmp_test.png
