@@ -1,5 +1,6 @@
 .git
 *.md
+*.sh
 .env
 docker-compose.yml
 Dockerfile
