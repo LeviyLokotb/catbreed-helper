@@ -1,72 +1,58 @@
 package ml
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
 	"os"
-	"sort"
+	"strings"
 	"sync"
 
-	tflite "github.com/mattn/go-tflite"
-	"github.com/mattn/go-tflite/delegates/xnnpack"
 	"github.com/nfnt/resize"
+	ort "github.com/yalue/onnxruntime_go"
 )
 
 type CatBreedPredictor struct {
-	interpreter *tflite.Interpreter
-	labels      []string
-	inputSize   int
-	mu          sync.Mutex
+	modelPath  string
+	labels     []string
+	inputSize  int
+	inputName  string
+	outputName string
+	mu         sync.Mutex
+	session    *ort.AdvancedSession // кешированная сессия
+}
+
+func Initialize() error {
+	// Инициализируем ONNX Runtime (нужно вызвать до любых операций с тензорами)
+	return ort.InitializeEnvironment()
 }
 
 func newCatBreedPredictor(modelPath, labelsPath string) (*CatBreedPredictor, error) {
-	// Загружаем модель
-	model := tflite.NewModelFromFile(modelPath)
-	if model == nil {
-		return nil, errors.New("failed to load model")
-	}
-
-	// Делегат для ускорения на CPU
-	// (плагин xnnpack, перехватывает операции и оптимизирует их)
-	options := tflite.NewInterpreterOptions()
-	defer options.Delete()
-
-	delegate := xnnpack.New(xnnpack.DelegateOptions{})
-	options.AddDelegate(delegate)
-
-	// Интерпретатор
-	interpreter := tflite.NewInterpreter(model, options)
-	if interpreter == nil {
-		return nil, errors.New("failed to create interpreter")
-	}
-
-	// Аллоцируем тензоры (библиотека использует cgo)
-	status := interpreter.AllocateTensors()
-	if status != tflite.OK {
-		return nil, errors.New("allocate tensors error")
-	}
-
-	// Проверяем входной тензор
-	input := interpreter.GetInputTensor(0)
-	if input.NumDims() != 4 {
-		return nil, fmt.Errorf("expected 4D tensor as input")
-	}
-	inputSize := input.Dim(1)
-
-	// Загружаем заголовки классов
+	// Загружаем лейблы из txt файла
 	labelsData, err := os.ReadFile(labelsPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read labels: %w", err)
 	}
+
+	lines := strings.Split(strings.TrimSpace(string(labelsData)), "\n")
 	var labels []string
-	json.Unmarshal(labelsData, &labels)
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			labels = append(labels, line)
+		}
+	}
+
+	if len(labels) == 0 {
+		return nil, errors.New("no labels found in file")
+	}
 
 	return &CatBreedPredictor{
-		interpreter: interpreter,
-		labels:      labels,
-		inputSize:   inputSize,
+		modelPath:  modelPath,
+		labels:     labels,
+		inputSize:  224,
+		inputName:  "input",
+		outputName: "output",
 	}, nil
 }
 
@@ -74,67 +60,100 @@ func (p *CatBreedPredictor) Predict(img image.Image) (*BreedPrediction, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Получаем входной тензор
-	inputTensor := p.interpreter.GetInputTensor(0)
-
-	// Заполняем его данными
 	inputData := p.preprocessImage(img)
-	inputTensor.SetFloat32s(inputData)
 
-	// Инференс
-	p.interpreter.Invoke()
+	inputShape := ort.NewShape(1, 3, 224, 224)
+	inputTensor, err := ort.NewTensor(inputShape, inputData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create input tensor: %w", err)
+	}
+	defer inputTensor.Destroy()
 
-	// Получаем выходной тензор
-	outputTensor := p.interpreter.GetOutputTensor(0)
-	outputData := outputTensor.Float32s()
+	outputShape := ort.NewShape(1, int64(len(p.labels)))
+	outputTensor, err := ort.NewEmptyTensor[float32](outputShape)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create output tensor: %w", err)
+	}
+	defer outputTensor.Destroy()
 
-	// Находим самое вероятное предсказание
-	if len(outputData) != len(p.labels) {
-		return nil, fmt.Errorf("unknown label")
+	// Закрываем старую сессию, если есть
+	if p.session != nil {
+		p.session.Destroy()
 	}
 
-	// Сортируем индексы по убыванию вероятности
-	indices := make([]int, len(outputData))
-	for i := range indices {
-		indices[i] = i
+	// Создаём новую сессию
+	p.session, err = ort.NewAdvancedSession(
+		p.modelPath,
+		[]string{p.inputName},
+		[]string{p.outputName},
+		[]ort.Value{inputTensor},
+		[]ort.Value{outputTensor},
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
-	sort.Slice(indices, func(i, j int) bool {
-		return outputData[indices[i]] > outputData[indices[j]]
-	})
-
-	result := &BreedPrediction{
-		Breed:      p.labels[indices[0]],
-		Confidence: outputData[indices[0]],
+	err = p.session.Run()
+	if err != nil {
+		return nil, fmt.Errorf("inference failed: %w", err)
 	}
 
-	return result, nil
+	outputData := outputTensor.GetData()
+
+	maxIdx := 0
+	maxVal := outputData[0]
+	for i, v := range outputData {
+		if v > maxVal {
+			maxVal = v
+			maxIdx = i
+		}
+	}
+
+	return &BreedPrediction{
+		Breed:      p.labels[maxIdx],
+		Confidence: maxVal,
+	}, nil
 }
 
 func (p *CatBreedPredictor) preprocessImage(img image.Image) []float32 {
-	// Ресайз до нужного размера
-	resized := resize.Resize(uint(p.inputSize), uint(p.inputSize), img, resize.Lanczos3)
+	// Ресайз до 224x224
+	resized := resize.Resize(224, 224, img, resize.Lanczos3)
 
-	// Создаем массив float32 размером [1][inputSize][inputSize][3]
-	input := make([]float32, 1*p.inputSize*p.inputSize*3)
+	// NCHW формат: [1][3][224][224]
+	input := make([]float32, 1*3*224*224)
 
 	bounds := resized.Bounds()
-	idx := 0
+
+	// Разделяем по каналам
+	planeSize := 224 * 224
+	rPlane := make([]float32, 0, planeSize)
+	gPlane := make([]float32, 0, planeSize)
+	bPlane := make([]float32, 0, planeSize)
+
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			r, g, b, _ := resized.At(x, y).RGBA()
-			// Конвертация из 0-65535 в 0-1 и нормализация
-			// Уточните у Python-разработчика точные параметры нормализации!
-			input[idx] = float32(r>>8) / 255.0
-			input[idx+1] = float32(g>>8) / 255.0
-			input[idx+2] = float32(b>>8) / 255.0
-			idx += 3
+			// Конвертация из 0-65535 в 0-1
+			rPlane = append(rPlane, float32(r>>8)/255.0)
+			gPlane = append(gPlane, float32(g>>8)/255.0)
+			bPlane = append(bPlane, float32(b>>8)/255.0)
 		}
 	}
+
+	// Копируем в порядке каналов: R, G, B
+	copy(input[0*planeSize:1*planeSize], rPlane)
+	copy(input[1*planeSize:2*planeSize], gPlane)
+	copy(input[2*planeSize:3*planeSize], bPlane)
 
 	return input
 }
 
 func (p *CatBreedPredictor) Close() {
-	p.interpreter.Delete()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.session != nil {
+		p.session.Destroy()
+		p.session = nil
+	}
 }
