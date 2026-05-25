@@ -8,6 +8,13 @@ type BreedPrediction struct {
 }
 
 func (p BreedPrediction) Deconstruct() (string, string) {
-	confidence := strconv.FormatFloat(float64(p.Confidence), 'f', 2, 32)
+	conf := p.Confidence
+	if conf < 0 {
+		conf = 0
+	}
+	if conf > 1 {
+		conf = 1
+	}
+	confidence := strconv.FormatFloat(float64(conf), 'f', 4, 32)
 	return p.Breed, confidence
 }

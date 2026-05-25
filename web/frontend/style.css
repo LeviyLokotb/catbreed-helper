@@ -357,6 +357,26 @@ input {
     margin-top: 18px;
     font-weight: 700;
     color: #334155;
+    padding: 0;
+    border-radius: 12px;
+}
+
+.status--success {
+    color: #166534;
+    background: #ecfdf3;
+    border: 1px solid #bbf7d0;
+    padding: 10px 12px;
+    display: block;
+}
+
+.status--error {
+    color: #7f1d1d;
+    background: #fecaca;
+    border: 2px solid #ef4444;
+    border-left: 8px solid #b91c1c;
+    padding: 12px 14px;
+    box-shadow: 0 10px 22px rgba(185, 28, 28, 0.22);
+    display: block;
 }
 
 .result {

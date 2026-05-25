@@ -14,8 +14,8 @@
                 <h1 class="hero__title">Определи породу кошки по фотографии</h1>
                 <p class="hero__description">
                     Загрузи фото кошки, и сервис покажет предполагаемую породу
-                    и уровень уверенности. Сейчас используется мок-режим, позже
-                    сюда можно подключить реальную ML-модель.
+                    и уровень уверенности. Изображение отправляется в backend,
+                    а backend обращается к реальной ML-модели.
                 </p>
             </div>
         </section>
@@ -37,15 +37,14 @@
                                 id="fileInput"
                                 name="file"
                                 type="file"
-                                accept="image/*"
-                                required
+                                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                             />
                             <label class="file-upload__label" for="fileInput">
                                 <span class="file-upload__icon">+</span>
                                 <span class="file-upload__content">
                                     <span class="file-upload__title">Выберите файл</span>
                                     <span class="file-upload__subtitle">
-                                        JPG, PNG, WEBP или другое изображение
+                                        Только JPG и PNG. Можно вставить изображение из буфера: Ctrl+V
                                     </span>
                                 </span>
                             </label>
@@ -121,8 +120,8 @@
                             </div>
 
                             <div class="result__item result__item--full">
-                                <span class="result__label">Режим</span>
-                                <span class="result__value" id="modeValue">—</span>
+                                <span class="result__label">Файл</span>
+                                <span class="result__value" id="filenameValue">—</span>
                             </div>
                         </div>
                     </section>
@@ -131,6 +130,9 @@
         </section>
     </main>
 
+    <script>
+        window.CATBREED_API_URL = "http://127.0.0.1:8000/predict";
+    </script>
     <script src="script.js"></script>
 </body>
 </html>

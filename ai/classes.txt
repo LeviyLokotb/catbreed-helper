@@ -1,20 +1,3 @@
-# Модель для распознавания пород котов по фото
-## Модель
-- soon
-
-## Датасет
-- `47679` изображений
-- `66` пород
-- `>3K` изображений для каждой
-- Исключены "псевдопороды" -- окраски и беспородные 
-
-Использованы следующие датасеты:
-1. https://www.kaggle.com/datasets/nikolasgegenava/cat-breeds
-2. https://www.kaggle.com/datasets/solothok/cat-breed
-3. https://www.kaggle.com/datasets/ma7555/cat-breeds-dataset
-
-Представлены породы:
-```
 abyssinian
 american_bobtail
 american_curl
@@ -81,4 +64,3 @@ turkish_van
 ukrainian_levkoy
 ural_rex
 vankedisi
-```
