@@ -1,7 +1,6 @@
 services:
   server:
     build: .
-    
     image: catbreed-server:latest
     container_name: catbreed-server
     ports:
