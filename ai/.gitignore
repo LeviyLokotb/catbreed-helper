@@ -2,3 +2,9 @@ data/*
 catbreeds/*
 *.tar.gz
 models/*.pt
+*.tflite
+*.data
+*.pth
+.venv/*
+.ipynb_checkpoints/*
+
