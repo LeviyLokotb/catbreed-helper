@@ -1,5 +1,4 @@
 data/*
 catbreeds/*
 *.tar.gz
-models/*.data
 models/*.pt

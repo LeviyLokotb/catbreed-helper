@@ -45,6 +45,7 @@ COPY --from=builder /app/server /app/server
 
 # Копируем модель и labels
 COPY model.onnx /app/model.onnx
+COPY model.onnx.data /app/model.onnx.data
 COPY labels.txt /app/labels.txt
 
 ENV MODEL_PATH=/app/model.onnx
