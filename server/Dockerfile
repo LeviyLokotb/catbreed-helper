@@ -43,9 +43,13 @@ RUN ldconfig
 # Копируем сервер
 COPY --from=builder /app/server /app/server
 
-# Копируем модель и labels
+# Копируем модель и labels.
+# Веса модели храним в репозитории частями (<100MB), затем склеиваем в контейнере.
 COPY model.onnx /app/model.onnx
-COPY model.onnx.data /app/model.onnx.data
+COPY model.onnx.data* /app/
+RUN if ls /app/model.onnx.data.part* >/dev/null 2>&1; then \
+      cat /app/model.onnx.data.part* > /app/model.onnx.data && rm /app/model.onnx.data.part*; \
+    fi
 COPY labels.txt /app/labels.txt
 
 ENV MODEL_PATH=/app/model.onnx
